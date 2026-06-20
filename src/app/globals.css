@@ -1,0 +1,39 @@
+@import url('https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* { -webkit-tap-highlight-color: transparent; }
+html { scroll-behavior: smooth; }
+body { font-family: 'Plus Jakarta Sans', sans-serif; background: #f0f4f8; overscroll-behavior: none; }
+::-webkit-scrollbar { display: none; }
+* { -ms-overflow-style: none; scrollbar-width: none; }
+.pb-safe { padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px)); }
+
+@layer components {
+  .btn-primary {
+    @apply w-full py-4 px-6 rounded-2xl font-sora font-bold text-base text-white flex items-center justify-center gap-2.5 transition-transform active:scale-95 cursor-pointer border-none outline-none;
+    background: linear-gradient(135deg, #1e3799, #0984e3);
+    box-shadow: 0 8px 24px rgba(9,132,227,0.35);
+  }
+  .btn-secondary { @apply w-full py-3.5 px-6 rounded-2xl font-jakarta font-semibold text-sm text-gray-500 border border-gray-200 active:bg-gray-50 bg-white cursor-pointer outline-none; }
+  .input-field { @apply w-full py-3.5 pl-11 pr-4 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-900 placeholder:text-gray-400 outline-none focus:border-brand-mid focus:bg-white transition-colors; }
+  .card { @apply bg-white rounded-3xl shadow-card overflow-hidden; }
+  .chip { @apply flex-shrink-0 px-4 py-2.5 rounded-full text-xs font-bold cursor-pointer transition-all; }
+  .chip-active { @apply bg-brand-mid text-white; box-shadow: 0 4px 16px rgba(9,132,227,0.3); }
+  .chip-inactive { @apply bg-white text-gray-500 border border-gray-200; }
+  .screen-header { @apply pt-14 px-5 pb-6 relative overflow-hidden; background: linear-gradient(135deg,#0c2461,#0984e3); }
+  .section-title { @apply font-sora text-[17px] font-bold text-gray-900; }
+}
+
+.token-pulse { animation: pulseRing 2.2s ease-in-out infinite; }
+@keyframes pulseRing { 0%,100%{box-shadow:0 0 0 0 rgba(9,132,227,.4)} 50%{box-shadow:0 0 0 18px rgba(9,132,227,0)} }
+.bounce-in { animation: bounceIn 0.7s cubic-bezier(0.34,1.56,0.64,1) both; }
+@keyframes bounceIn { 0%{transform:scale(.3);opacity:0} 60%{transform:scale(1.15)} 100%{transform:scale(1);opacity:1} }
+.sheet-up { animation: sheetUp 0.35s cubic-bezier(0.32,0.72,0,1) both; }
+@keyframes sheetUp { from{transform:translateY(100%);opacity:0} to{transform:translateY(0);opacity:1} }
+.fade-up { animation: fadeUp 0.45s ease-out both; }
+@keyframes fadeUp { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
+.status-live { animation: statusBlink 1.5s ease-in-out infinite; }
+@keyframes statusBlink { 0%,100%{opacity:1} 50%{opacity:.3} }

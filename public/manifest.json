@@ -1,0 +1,15 @@
+{
+  "name": "QueueCare",
+  "short_name": "QueueCare",
+  "start_url": "/",
+  "display": "standalone",
+  "theme_color": "#0c2461",
+  "background_color": "#0c2461",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "64x64",
+      "type": "image/x-icon"
+    }
+  ]
+}
