@@ -6,6 +6,19 @@ import { Eye, EyeOff, User, Mail, Lock, Phone, ArrowLeft, Shield, CheckCircle, S
 import { useAppStore } from '@/store/useAppStore';
 import toast from 'react-hot-toast';
 
+const Field = ({ name, label, type='text', Icon, placeholder, right, value, error, onChange }) => (
+  <div className="mb-4">
+    <label className="block text-[13px] font-bold text-gray-500 mb-2">{label}</label>
+    <div className="relative">
+      <Icon size={16} className="absolute left-[14px] top-1/2 -translate-y-1/2 text-gray-400" />
+      <input type={type} value={value} placeholder={placeholder} onChange={onChange}
+        className={`input-field ${error?'border-red-400 bg-red-50':''}`} />
+      {right && <div className="absolute right-3 top-1/2 -translate-y-1/2">{right}</div>}
+    </div>
+    {error && <p className="text-red-500 text-[12px] mt-1.5 font-semibold">{error}</p>}
+  </div>
+);
+
 export default function AuthPage() {
   const router = useRouter();
   const { setUser } = useAppStore();
@@ -85,19 +98,6 @@ export default function AuthPage() {
     }
   };
 
-  const Field = ({ name, label, type='text', Icon, placeholder, right }) => (
-    <div className="mb-4">
-      <label className="block text-[13px] font-bold text-gray-500 mb-2">{label}</label>
-      <div className="relative">
-        <Icon size={16} className="absolute left-[14px] top-1/2 -translate-y-1/2 text-gray-400" />
-        <input type={type} value={form[name]} placeholder={placeholder} onChange={e=>update(name,e.target.value)}
-          className={`input-field ${errors[name]?'border-red-400 bg-red-50':''}`} />
-        {right && <div className="absolute right-3 top-1/2 -translate-y-1/2">{right}</div>}
-      </div>
-      {errors[name] && <p className="text-red-500 text-[12px] mt-1.5 font-semibold">{errors[name]}</p>}
-    </div>
-  );
-
   return (
     <div className="min-h-screen bg-white flex flex-col">
       {/* Hero header with real doctor image */}
@@ -170,10 +170,10 @@ export default function AuthPage() {
           </div>
         )}
 
-        {tab==='signup' && <Field name="name" label="Full Name" Icon={User} placeholder="Your full name" />}
-        {(tab==='login' || tab==='signup') && <Field name="email" label="Email Address" type="email" Icon={Mail} placeholder="you@email.com" />}
-        {(tab==='signup' || tab==='otp') && <Field name="phone" label="Mobile Number" type="tel" Icon={Phone} placeholder="10-digit number" />}
-        {(tab==='login' || tab==='signup') && <Field name="password" label="Password" type={showPass?'text':'password'} Icon={Lock} placeholder="Enter password"
+        {tab==='signup' && <Field name="name" label="Full Name" Icon={User} placeholder="Your full name" value={form.name} error={errors.name} onChange={e=>update('name',e.target.value)} />}
+        {(tab==='login' || tab==='signup') && <Field name="email" label="Email Address" type="email" Icon={Mail} placeholder="you@email.com" value={form.email} error={errors.email} onChange={e=>update('email',e.target.value)} />}
+        {(tab==='signup' || tab==='otp') && <Field name="phone" label="Mobile Number" type="tel" Icon={Phone} placeholder="10-digit number" value={form.phone} error={errors.phone} onChange={e=>update('phone',e.target.value)} />}
+        {(tab==='login' || tab==='signup') && <Field name="password" label="Password" type={showPass?'text':'password'} Icon={Lock} placeholder="Enter password" value={form.password} error={errors.password} onChange={e=>update('password',e.target.value)}
           right={<button type="button" onClick={()=>setShowPass(p=>!p)} className="flex">
             {showPass?<EyeOff size={16} className="text-gray-400"/>:<Eye size={16} className="text-gray-400"/>}
           </button>} />}
