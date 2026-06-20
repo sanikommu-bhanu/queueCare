@@ -21,7 +21,7 @@ const SPECIALTIES = [
 
 export default function ExplorePage() {
   const router = useRouter();
-  const [clinics, setClinics] = useState(DEMO_CLINICS);
+  const [clinics, setClinics] = useState([]);
   const [query, setQuery] = useState('');
   const [specialty, setSpecialty] = useState('all');
   const [loading, setLoading] = useState(false);

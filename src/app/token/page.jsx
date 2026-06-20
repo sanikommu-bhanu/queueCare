@@ -41,20 +41,21 @@ function TokenTracker() {
         const res = await fetch(`/api/tokens/status?token_id=${tokenId}`);
         if (res.ok) {
           const d = await res.json();
-          const prev = token;
-          setToken(d.token);
+          setToken(prev => {
+            if (d.token.status==='called' && prev?.status!=='called') {
+              pushNotification({ title:'🔔 Your turn!', body:`Token #${pad(d.token.token_number)} called`, type:'called' });
+              toast.success('Your token has been called!');
+              try { window.speechSynthesis?.speak(new SpeechSynthesisUtterance(`Token number ${d.token.token_number}, please proceed.`)); } catch {}
+            }
+            return d.token;
+          });
           updateCurrentToken(d.token);
-          if (d.token.status==='called' && prev?.status!=='called') {
-            pushNotification({ title:'🔔 Your turn!', body:`Token #${pad(d.token.token_number)} called`, type:'called' });
-            toast.success('Your token has been called!');
-            try { window.speechSynthesis?.speak(new SpeechSynthesisUtterance(`Token number ${d.token.token_number}, please proceed.`)); } catch {}
-          }
         }
       } catch {}
     }
     setLastSec(0);
     setLoading(false);
-  }, [tokenId, token, updateCurrentToken, pushNotification]);
+  }, [tokenId, updateCurrentToken, pushNotification]);
 
   useEffect(() => { const t = setInterval(()=>setLastSec(s=>s+1), 1000); return ()=>clearInterval(t); }, []);
   

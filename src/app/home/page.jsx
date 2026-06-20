@@ -25,7 +25,7 @@ const SPECIALTIES = [
 export default function HomePage() {
   const router = useRouter();
   const { user, currentToken, tokenHistory, notifications } = useAppStore();
-  const [clinics, setClinics] = useState(DEMO_CLINICS);
+  const [clinics, setClinics] = useState([]);
   const [stats, setStats] = useState({ total_clinics: 8, served_today: 248, waiting_now: 47 });
   const [specialty, setSpecialty] = useState('all');
   const [loading, setLoading] = useState(false);
