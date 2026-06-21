@@ -71,6 +71,16 @@ export async function initDb() {
     created_at TIMESTAMPTZ DEFAULT NOW()
   )`;
 
+  await sql`CREATE TABLE IF NOT EXISTS push_subscriptions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES users(id),
+    token_id UUID REFERENCES tokens(id) ON DELETE CASCADE,
+    endpoint TEXT NOT NULL UNIQUE,
+    p256dh TEXT NOT NULL,
+    auth TEXT NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+  )`;
+
   await sql`CREATE INDEX IF NOT EXISTS idx_tokens_queue ON tokens(queue_id)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_tokens_clinic ON tokens(clinic_id)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_tokens_status ON tokens(status)`;

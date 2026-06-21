@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { ArrowLeft, ChevronRight, Users, Volume2, CheckCircle, Plus, RefreshCw, Activity } from 'lucide-react';
+import { ArrowLeft, ChevronRight, Users, Volume2, CheckCircle, Plus, RefreshCw, Activity, Download } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import BottomNav from '@/components/BottomNav';
 import { pad, STATUS } from '@/lib/utils';
@@ -159,12 +159,43 @@ export default function ReceptionistPage() {
       {/* QR Code Panel */}
       <div className="px-5 mt-4">
         <div className="bg-white rounded-2xl p-5 text-center flex flex-col items-center justify-center" style={{ boxShadow:'0 4px 16px rgba(0,0,0,0.07)' }}>
-          <p className="font-sora text-[14px] font-bold text-gray-900 mb-4">Scan to Join Queue</p>
+          <p className="font-sora text-[14px] font-bold text-gray-900 mb-4">Scan to join queue instantly</p>
           <div className="p-3 bg-gray-50 rounded-xl mb-3 inline-block">
-            <QRCodeSVG value={`${typeof window !== 'undefined' ? window.location.origin : ''}/queue?clinic_id=${clinicId}&name=Apollo Clinic`} size={140} level="M" />
+            <QRCodeSVG 
+              id="clinic-qr-code"
+              value={`${typeof window !== 'undefined' ? window.location.origin : ''}/queue?clinic_id=${clinicId}&name=Apollo Clinic`} 
+              size={200} 
+              level="M" 
+              includeMargin={true}
+            />
           </div>
-          <p className="font-sora font-extrabold text-[#0984e3] text-[16px] tracking-wide mb-1">Apollo Clinic</p>
-          <p className="text-[12px] text-gray-400">Point your camera here to join online</p>
+          <p className="font-sora font-extrabold text-[#0984e3] text-[16px] tracking-wide mb-4">Apollo Clinic</p>
+          
+          <button 
+            onClick={() => {
+              const svg = document.getElementById('clinic-qr-code');
+              const svgData = new XMLSerializer().serializeToString(svg);
+              const canvas = document.createElement('canvas');
+              const ctx = canvas.getContext('2d');
+              const img = new window.Image();
+              img.onload = () => {
+                canvas.width = img.width;
+                canvas.height = img.height;
+                ctx.fillStyle = 'white';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.drawImage(img, 0, 0);
+                const pngFile = canvas.toDataURL('image/png');
+                const downloadLink = document.createElement('a');
+                downloadLink.download = 'clinic-qr-code.png';
+                downloadLink.href = pngFile;
+                downloadLink.click();
+              };
+              img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
+            }}
+            className="w-full py-3 bg-gray-900 text-white rounded-xl font-bold text-[14px] flex items-center justify-center gap-2 active:scale-95 transition-transform"
+          >
+            <Download size={18} /> Download / Share QR
+          </button>
         </div>
       </div>
 
