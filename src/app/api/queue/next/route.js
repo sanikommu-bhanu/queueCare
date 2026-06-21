@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { initDb } from '@/lib/db';
+import { sendPushNotification } from '@/lib/push';
 
 export async function GET(req) {
   try {
@@ -41,17 +42,7 @@ export async function POST(req) {
     }
 
     // Trigger push notification to that patient
-    try {
-      const url = new URL(req.url);
-      const baseUrl = url.origin;
-      await fetch(`${baseUrl}/api/notifications/send`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token_id: next.id, token_number: next.token_number })
-      });
-    } catch (err) {
-      console.error('Failed to trigger push notification:', err);
-    }
+    await sendPushNotification(next.id, next.token_number);
 
     return NextResponse.json({ token: { ...next, status: 'called' }, current_number: next.token_number });
   } catch (err) {

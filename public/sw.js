@@ -10,6 +10,13 @@ self.addEventListener('push', function(event) {
         primaryKey: '2'
       }
     };
+    // Send message to open clients to show in-app toast
+    self.clients.matchAll().then(clients => {
+      clients.forEach(client => {
+        client.postMessage({ type: 'PUSH_RECEIVED', title: data.title, body: data.body });
+      });
+    });
+
     event.waitUntil(
       self.registration.showNotification(data.title, options)
     );

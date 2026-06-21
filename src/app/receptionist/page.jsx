@@ -13,7 +13,7 @@ export default function ReceptionistPage() {
   const router = useRouter();
   const [tokens, setTokens] = useState(DEMO_QUEUE_PATIENTS);
   const [currentToken, setCurrentToken] = useState(3);
-  const [clinicId] = useState('demo-clinic');
+  const [clinicId] = useState('c1');
   const [calling, setCalling] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
   const [addForm, setAddForm] = useState({ name:'', phone:'', reason:'' });
