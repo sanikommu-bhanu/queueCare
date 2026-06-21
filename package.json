@@ -12,6 +12,7 @@
   "dependencies": {
     "@neondatabase/serverless": "^0.9.4",
     "bcryptjs": "^2.4.3",
+    "canvas-confetti": "^1.9.4",
     "clsx": "^2.1.1",
     "date-fns": "^3.6.0",
     "jsonwebtoken": "^9.0.2",

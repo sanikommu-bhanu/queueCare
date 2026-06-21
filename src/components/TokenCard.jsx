@@ -1,10 +1,41 @@
 'use client';
 import Image from 'next/image';
+import { useEffect, useRef } from 'react';
 import { Clock, Users, PhoneCall, Bell, MapPin } from 'lucide-react';
+import confetti from 'canvas-confetti';
 import { pad, STATUS } from '@/lib/utils';
 
 export default function TokenCard({ token, compact = false }) {
   const sc = STATUS[token.status] || STATUS.waiting;
+  const announced = useRef(false);
+
+  useEffect(() => {
+    if (token.status === 'called' && !announced.current) {
+      announced.current = true;
+      // Confetti explosion
+      confetti({
+        particleCount: 150,
+        spread: 80,
+        origin: { y: 0.6 },
+        colors: ['#0984e3', '#00b894', '#f59e0b', '#ffffff']
+      });
+      // Synthetic Bell Sound
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = ctx.createOscillator();
+        const gainNode = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(880, ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(440, ctx.currentTime + 0.5);
+        gainNode.gain.setValueAtTime(0.3, ctx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 1.5);
+        osc.connect(gainNode);
+        gainNode.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + 1.5);
+      } catch (e) {}
+    }
+  }, [token.status]);
 
   if (compact) {
     return (
@@ -27,14 +58,17 @@ export default function TokenCard({ token, compact = false }) {
   return (
     <div className="bg-white rounded-3xl overflow-hidden" style={{ boxShadow:'0 12px 48px rgba(0,0,0,0.14)' }}>
       {/* Gradient header with hospital image */}
-      <div className="relative px-6 pt-8 pb-10 text-center overflow-hidden">
+      <div className={`relative px-6 pt-8 pb-10 text-center overflow-hidden ${token.status === 'called' ? 'breathing-gradient' : ''}`}
+        style={token.status === 'called' ? { background: 'linear-gradient(135deg, #0c2461, #0984e3, #1e3799, #0c2461)' } : {}}>
         {/* Background hospital image */}
         <div className="absolute inset-0">
           <Image
             src="https://images.unsplash.com/photo-1586773860418-d37222d8fce3?w=600&q=80"
-            alt="hospital" fill className="object-cover opacity-20" sizes="430px" />
+            alt="hospital" fill className="object-cover opacity-20 mix-blend-overlay" sizes="430px" />
         </div>
-        <div className="absolute inset-0" style={{ background:'linear-gradient(135deg,#0c2461ee,#0984e3ee)' }} />
+        {token.status !== 'called' && (
+          <div className="absolute inset-0" style={{ background:'linear-gradient(135deg,#0c2461ee,#0984e3ee)' }} />
+        )}
         <div className="absolute top-[-40px] right-[-40px] w-48 h-48 rounded-full bg-white/5" />
         <div className="absolute bottom-[-60px] left-[-20px] w-40 h-40 rounded-full bg-white/5" />
 

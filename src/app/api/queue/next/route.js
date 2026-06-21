@@ -29,11 +29,22 @@ export async function POST(req) {
     // Mark current serving/called as done
     await sql`UPDATE tokens SET status='done', served_at=NOW() WHERE queue_id=${queue.id} AND status IN ('serving','called')`;
 
-    // Find next waiting token
-    const [next] = await sql`SELECT * FROM tokens WHERE queue_id=${queue.id} AND status='waiting' ORDER BY token_number ASC LIMIT 1`;
+    // Find next waiting token atomically
+    const [next] = await sql`
+      WITH next_token AS (
+        SELECT id FROM tokens 
+        WHERE queue_id=${queue.id} AND status='waiting' 
+        ORDER BY token_number ASC 
+        LIMIT 1 
+        FOR UPDATE SKIP LOCKED
+      )
+      UPDATE tokens 
+      SET status='called', called_at=NOW() 
+      WHERE id = (SELECT id FROM next_token) 
+      RETURNING *`;
+
     if (!next) return NextResponse.json({ queue_empty: true, message: 'Queue is empty' });
 
-    await sql`UPDATE tokens SET status='called', called_at=NOW() WHERE id=${next.id}`;
     await sql`UPDATE queues SET current_token=${next.token_number} WHERE id=${queue.id}`;
     
     // Emit event to update queue

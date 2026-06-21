@@ -5,7 +5,6 @@ import Image from 'next/image';
 import { Search, MapPin, X, SlidersHorizontal } from 'lucide-react';
 import { ClinicCardFull } from '@/components/ClinicCard';
 import BottomNav from '@/components/BottomNav';
-import { DEMO_CLINICS } from '@/lib/images';
 
 const SPECIALTIES = [
   { id:'all',           label:'All',          img:'https://images.unsplash.com/photo-1586773860418-d37222d8fce3?w=120&q=80' },

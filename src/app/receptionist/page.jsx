@@ -2,22 +2,25 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { ArrowLeft, ChevronRight, Users, Volume2, CheckCircle, Plus, RefreshCw, Activity, Download } from 'lucide-react';
+import { ArrowLeft, ChevronRight, Users, Volume2, CheckCircle, Plus, RefreshCw, Activity, Download, Settings, Printer, TrendingUp } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import BottomNav from '@/components/BottomNav';
 import { pad, STATUS } from '@/lib/utils';
-import { DEMO_QUEUE_PATIENTS } from '@/lib/images';
 import toast from 'react-hot-toast';
+import { initSocket, getSocket } from '@/lib/socket';
 
 export default function ReceptionistPage() {
   const router = useRouter();
-  const [tokens, setTokens] = useState(DEMO_QUEUE_PATIENTS);
+  const [tokens, setTokens] = useState([]);
   const [currentToken, setCurrentToken] = useState(3);
   const [clinicId, setClinicId] = useState(null);
   const [calling, setCalling] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
   const [addForm, setAddForm] = useState({ name:'', phone:'', reason:'' });
   const [loading, setLoading] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [waitMins, setWaitMins] = useState(15);
+  const [realStats, setRealStats] = useState({ served_today: 0, avg_wait: 0 });
 
   const stats = {
     waiting: tokens.filter(t=>t.status==='waiting').length,
@@ -29,9 +32,39 @@ export default function ReceptionistPage() {
     fetch('/api/clinics/list')
       .then(r => r.json())
       .then(d => {
-        if (d.clinics?.[0]) setClinicId(d.clinics[0].id);
+        if (d.clinics?.[0]) {
+          setClinicId(d.clinics[0].id);
+          setWaitMins(d.clinics[0].avg_wait_minutes || 15);
+        }
       });
   }, []);
+
+  useEffect(() => { 
+    initSocket();
+    const handleUpdate = () => loadQueue();
+    const checkSocket = setInterval(() => {
+      const sock = getSocket();
+      if (sock) {
+        sock.on('queueUpdated', handleUpdate);
+        clearInterval(checkSocket);
+      }
+    }, 200);
+    return () => {
+      clearInterval(checkSocket);
+      const sock = getSocket();
+    };
+  }, [loadQueue]);
+
+  const loadStats = useCallback(async () => {
+    if (!clinicId) return;
+    try {
+      const res = await fetch(`/api/analytics/summary?clinic_id=${clinicId}`);
+      if (res.ok) {
+        const d = await res.json();
+        setRealStats({ served_today: d.stats.served_today || 0, avg_wait: Math.round(d.stats.avg_service_minutes || 0) });
+      }
+    } catch {}
+  }, [clinicId]);
 
   const loadQueue = useCallback(async () => {
     if (!clinicId) return;
@@ -52,7 +85,7 @@ export default function ReceptionistPage() {
     setLoading(false);
   }, [clinicId]);
 
-  useEffect(() => { loadQueue(); }, [clinicId, loadQueue]);
+  useEffect(() => { loadQueue(); loadStats(); }, [clinicId, loadQueue, loadStats]);
 
   const callNext = async () => {
     setCalling(true);
@@ -71,27 +104,55 @@ export default function ReceptionistPage() {
         }
       } else throw new Error();
     } catch {
-      const waiting = tokens.filter(t=>t.status==='waiting');
-      if (!waiting.length) { toast('Queue is empty! 🎉'); }
-      else {
-        const next = waiting[0];
-        setTokens(q => q.map(t => t.id===next.id?{...t,status:'called'}:t.status==='called'?{...t,status:'serving'}:t.status==='serving'?{...t,status:'done'}:t));
-        setCurrentToken(next.token_number);
-        toast.success(`Calling Token #${pad(next.token_number)} — ${next.patient_name}`);
-        try { window.speechSynthesis?.speak(new SpeechSynthesisUtterance(`Token number ${next.token_number}, ${next.patient_name}, please proceed to the consultation room.`)); } catch {}
-      }
+      toast.error('Failed to call next token. Check connection.');
     }
     setCalling(false);
   };
 
-  const addPatient = () => {
+  const addPatient = async () => {
     if (!addForm.name.trim()) { toast.error('Patient name required'); return; }
-    const maxNum = tokens.reduce((m,t)=>Math.max(m,t.token_number),0);
-    const newTk = { id:'t-'+Date.now(), token_number:maxNum+1, patient_name:addForm.name, patient_phone:addForm.phone, reason:addForm.reason, status:'waiting', avatar: null };
-    setTokens(prev => [...prev, newTk]);
-    setAddForm({ name:'', phone:'', reason:'' });
-    setShowAdd(false);
-    toast.success(`Token #${pad(newTk.token_number)} issued for ${addForm.name}`);
+    setLoading(true);
+    try {
+      const res = await fetch('/api/queue/add', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clinic_id: clinicId, patient_name: addForm.name, patient_phone: addForm.phone, reason: addForm.reason })
+      });
+      if (res.ok) {
+        const d = await res.json();
+        toast.success(`Token #${pad(d.token.token_number)} issued for ${addForm.name}`);
+        setAddForm({ name:'', phone:'', reason:'' });
+        setShowAdd(false);
+        loadQueue();
+      } else {
+        throw new Error('Failed to add');
+      }
+    } catch {
+      toast.error('Failed to add patient. Check connection.');
+    }
+    setLoading(false);
+  };
+
+  const updateWaitTime = async () => {
+    try {
+      const res = await fetch('/api/clinics/update-wait-time', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clinic_id: clinicId, avg_wait_minutes: parseInt(waitMins) })
+      });
+      if (res.ok) {
+        toast.success('Average wait time updated');
+        setShowSettings(false);
+      } else {
+        throw new Error();
+      }
+    } catch {
+      toast.error('Failed to update wait time');
+    }
+  };
+
+  const handlePrint = () => {
+    window.print();
   };
 
   const calledTk = tokens.find(t=>t.status==='called');
@@ -112,10 +173,15 @@ export default function ReceptionistPage() {
               <p className="text-white/60 text-[12px]">Receptionist Dashboard</p>
               <p className="font-sora font-bold text-white text-[15px]">Apollo Clinic</p>
             </div>
-            <button onClick={() => { loadQueue(); toast('Refreshed'); }} disabled={loading}
-              className="w-10 h-10 bg-white/15 rounded-xl flex items-center justify-center">
-              <RefreshCw size={16} color="white" className={loading ? 'animate-spin' : ''} />
-            </button>
+            <div className="flex gap-2">
+              <button onClick={() => setShowSettings(true)} className="w-10 h-10 bg-white/15 rounded-xl flex items-center justify-center">
+                <Settings size={16} color="white" />
+              </button>
+              <button onClick={() => { loadQueue(); toast('Refreshed'); }} disabled={loading}
+                className="w-10 h-10 bg-white/15 rounded-xl flex items-center justify-center">
+                <RefreshCw size={16} color="white" className={loading ? 'animate-spin' : ''} />
+              </button>
+            </div>
           </div>
 
           {/* Now serving */}
@@ -163,11 +229,15 @@ export default function ReceptionistPage() {
         ))}
       </div>
 
-      {/* Add patient button */}
-      <div className="px-5 mt-4">
-        <button onClick={() => setShowAdd(true)} className="w-full py-3.5 bg-white rounded-2xl font-bold text-[14px] flex items-center justify-center gap-2"
+      {/* Add & Print Buttons */}
+      <div className="px-5 mt-4 flex gap-3 print:hidden">
+        <button onClick={() => setShowAdd(true)} className="flex-[2] py-3.5 bg-white rounded-2xl font-bold text-[14px] flex items-center justify-center gap-2"
           style={{ border:'2px dashed #0984e3', color:'#0984e3', boxShadow:'0 2px 8px rgba(9,132,227,0.1)' }}>
-          <Plus size={18} /> Add Patient to Queue
+          <Plus size={18} /> Add Patient
+        </button>
+        <button onClick={handlePrint} className="flex-1 py-3.5 bg-gray-900 text-white rounded-2xl font-bold text-[14px] flex items-center justify-center gap-2"
+          style={{ boxShadow:'0 4px 16px rgba(0,0,0,0.15)' }}>
+          <Printer size={18} /> Print
         </button>
       </div>
 
@@ -264,13 +334,25 @@ export default function ReceptionistPage() {
             </div>
           );
         })}
-        {tokens.length === 0 && (
+        {loading && tokens.length === 0 ? (
+          <div className="space-y-3">
+            {[1,2,3,4].map(i => (
+              <div key={i} className="bg-white rounded-2xl p-4 flex items-center gap-3" style={{ boxShadow:'0 4px 16px rgba(0,0,0,0.07)' }}>
+                <div className="w-12 h-12 rounded-xl skeleton flex-shrink-0" />
+                <div className="flex-1 space-y-2">
+                  <div className="h-4 w-32 skeleton rounded-md" />
+                  <div className="h-3 w-24 skeleton rounded-md" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : tokens.length === 0 ? (
           <div className="bg-white rounded-3xl p-10 text-center" style={{ boxShadow:'0 4px 16px rgba(0,0,0,0.07)' }}>
             <Activity size={40} className="text-gray-200 mx-auto mb-3" />
             <p className="font-bold text-gray-500 mb-1">Queue is empty</p>
             <p className="text-gray-400 text-[13px]">Add patients or wait for them to join online</p>
           </div>
-        )}
+        ) : null}
       </div>
 
       {/* Add patient modal */}
@@ -294,7 +376,57 @@ export default function ReceptionistPage() {
           </div>
         </div>
       )}
-      <BottomNav />
+
+      {/* Settings modal */}
+      {showSettings && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-end max-w-[430px] mx-auto"
+          onClick={e => e.target===e.currentTarget && setShowSettings(false)}>
+          <div className="w-full bg-white rounded-t-[32px] p-6 sheet-up">
+            <div className="w-12 h-1 bg-gray-200 rounded-full mx-auto mb-5" />
+            <h3 className="font-sora text-[18px] font-bold text-gray-900 mb-5">⚙️ Settings</h3>
+            <div className="mb-4">
+              <label className="block text-[13px] font-bold text-gray-500 mb-2">Average Consultation Time (mins)</label>
+              <input type="number" value={waitMins} onChange={e=>setWaitMins(e.target.value)}
+                className="w-full py-3 px-4 bg-gray-50 border border-gray-200 rounded-xl text-[14px] text-gray-900 outline-none focus:border-brand-mid transition-colors" />
+              <p className="text-[11px] text-gray-400 mt-2">Used to calculate estimated wait times for patients in the queue.</p>
+            </div>
+            <div className="flex gap-3 mt-6">
+              <button onClick={() => setShowSettings(false)} className="btn-secondary flex-1">Cancel</button>
+              <button onClick={updateWaitTime} className="btn-primary flex-1">Save Settings</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Daily Insights Analytics */}
+      <div className="px-5 mt-5 mb-5 print:hidden">
+        <h3 className="section-title mb-3 flex items-center gap-2"><TrendingUp size={16} className="text-[#0984e3]"/> Daily Insights</h3>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="bg-white rounded-2xl p-4" style={{ boxShadow:'0 4px 16px rgba(0,0,0,0.05)' }}>
+            <p className="text-gray-400 text-[11px] font-bold uppercase tracking-wider mb-1">Total Served</p>
+            <p className="font-sora text-[28px] font-extrabold text-gray-900 leading-none">{realStats.served_today}</p>
+            <p className="text-[#00b894] text-[10px] font-bold mt-2">↑ Patients today</p>
+          </div>
+          <div className="bg-white rounded-2xl p-4" style={{ boxShadow:'0 4px 16px rgba(0,0,0,0.05)' }}>
+            <p className="text-gray-400 text-[11px] font-bold uppercase tracking-wider mb-1">Avg Wait Time</p>
+            <p className="font-sora text-[28px] font-extrabold text-gray-900 leading-none">{realStats.avg_wait}<span className="text-[14px] text-gray-400 ml-1">min</span></p>
+            <p className="text-amber-500 text-[10px] font-bold mt-2">Realtime data</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Print Layout */}
+      <div className="hidden print:block text-black p-4 text-center">
+        <h2 className="font-sora font-bold text-2xl mb-1">Apollo Clinic</h2>
+        <p className="text-sm mb-4 border-b border-black pb-4">Queue Token Receipt</p>
+        <p className="text-sm">Your Token Number</p>
+        <p className="font-sora font-extrabold text-6xl my-2">#{pad(calledTk ? calledTk.token_number + 1 : (stats.waiting + stats.served + stats.called + 1))}</p>
+        <p className="text-sm border-t border-black pt-4 mt-4">Please wait for your number to be called.</p>
+        <p className="text-xs mt-2">Generated on: {new Date().toLocaleDateString()} {new Date().toLocaleTimeString()}</p>
+      </div>
+
+      <div className="print:hidden">
+        <BottomNav />
+      </div>
     </div>
   );
 }

@@ -9,7 +9,6 @@ import { ClinicCardHorizontal } from '@/components/ClinicCard';
 import TokenCard from '@/components/TokenCard';
 import { useAppStore } from '@/store/useAppStore';
 import { initials, pad } from '@/lib/utils';
-import { DEMO_CLINICS } from '@/lib/images';
 
 const SPECIALTIES = [
   { id:'all',           label:'All',          e:'🏥', img:'https://images.unsplash.com/photo-1586773860418-d37222d8fce3?w=80&q=80' },
@@ -210,13 +209,13 @@ export default function HomePage() {
       <div className="px-5 mt-5 mb-3">
         <h3 className="section-title mb-3">Our Top Doctors</h3>
         <div className="flex gap-3 overflow-x-auto pb-1">
-          {DEMO_CLINICS.slice(0,5).map(c => c.doctor && (
+          {clinics.filter(c => c.doctor_name).slice(0,5).map(c => (
             <div key={c.id} className="flex-shrink-0 flex flex-col items-center gap-2 w-[72px]">
               <div className="relative w-16 h-16 rounded-2xl overflow-hidden"
                 style={{ boxShadow:'0 4px 16px rgba(0,0,0,0.15)', border:'2px solid white' }}>
-                <Image src={c.doctor.img} alt={c.doctor.name} fill className="object-cover" sizes="64px" />
+                <Image src={c.doctor_image} alt={c.doctor_name} fill className="object-cover" sizes="64px" />
               </div>
-              <p className="text-[10px] font-bold text-gray-700 text-center leading-tight">{c.doctor.name.split(' ').slice(-1)[0]}</p>
+              <p className="text-[10px] font-bold text-gray-700 text-center leading-tight">{c.doctor_name.split(' ').slice(-1)[0]}</p>
               <p className="text-[9px] text-gray-400 text-center">{c.specialty.split(' ')[0]}</p>
             </div>
           ))}

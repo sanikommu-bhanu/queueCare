@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback, Suspense, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
-import { ArrowLeft, RefreshCw, Share2, X, Volume2, CheckCircle } from 'lucide-react';
+import { ArrowLeft, RefreshCw, Share2, X, Volume2, CheckCircle, Languages } from 'lucide-react';
 import TokenCard from '@/components/TokenCard';
 import BottomNav from '@/components/BottomNav';
 import { useAppStore } from '@/store/useAppStore';
@@ -21,6 +21,23 @@ function urlBase64ToUint8Array(base64String) {
   return outputArray;
 }
 
+const TRANSLATIONS = {
+  en: {
+    title: 'My Token', noActive: 'No Active Token', joinClinic: 'Join a clinic queue to get your token',
+    findClinic: 'Find a Clinic', liveUpdate: 'Live Real-time updates', queuePosition: 'Queue Position',
+    you: 'YOU', visitComplete: 'Visit Complete!', thankYou: 'Thank you for using QueueCare',
+    allowNotifications: 'Allow Notifications', announceStatus: 'Announce Token Status',
+    leaveQueue: 'Leave Queue', backHome: 'Back to Home'
+  },
+  hi: {
+    title: 'मेरा टोकन', noActive: 'कोई सक्रिय टोकन नहीं', joinClinic: 'अपना टोकन पाने के लिए क्लिनिक कतार में शामिल हों',
+    findClinic: 'क्लिनिक खोजें', liveUpdate: 'लाइव अपडेट', queuePosition: 'कतार की स्थिति',
+    you: 'आप', visitComplete: 'जांच पूरी हुई!', thankYou: 'QueueCare का उपयोग करने के लिए धन्यवाद',
+    allowNotifications: 'सूचनाओं की अनुमति दें', announceStatus: 'टोकन स्थिति बोलकर बताएं',
+    leaveQueue: 'कतार छोड़ें', backHome: 'होम पर वापस जाएं'
+  }
+};
+
 function TokenTracker() {
   const router = useRouter();
   const sp = useSearchParams();
@@ -30,7 +47,9 @@ function TokenTracker() {
   const [loading, setLoading] = useState(false);
   const [lastSec, setLastSec] = useState(0);
   const [isSubscribed, setIsSubscribed] = useState(false);
+  const [lang, setLang] = useState('en');
   const announcedRef = useRef(false);
+  const t = TRANSLATIONS[lang];
 
   const subscribeToPush = async () => {
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
@@ -73,25 +92,14 @@ function TokenTracker() {
   const refresh = useCallback(async () => {
     if (!tokenId) return;
     setLoading(true);
-    if (tokenId.startsWith('demo-')) {
-      setToken(prev => {
-        if (!prev || prev.status === 'done') return prev;
-        const ahead = Math.max(0, (prev.tokens_ahead||0) - 1);
-        const status = ahead === 0 ? 'called' : 'waiting';
-        const updated = { ...prev, tokens_ahead:ahead, current_token:(prev.current_token||0)+1, estimated_wait_minutes:ahead*12, status };
-        updateCurrentToken(updated);
-        return updated;
-      });
-    } else {
-      try {
-        const res = await fetch(`/api/tokens/status?token_id=${tokenId}`);
-        if (res.ok) {
-          const d = await res.json();
-          setToken(d.token);
-          updateCurrentToken(d.token);
-        }
-      } catch {}
-    }
+    try {
+      const res = await fetch(`/api/tokens/status?token_id=${tokenId}`);
+      if (res.ok) {
+        const d = await res.json();
+        setToken(d.token);
+        updateCurrentToken(d.token);
+      }
+    } catch {}
     setLastSec(0);
     setLoading(false);
   }, [tokenId, updateCurrentToken]);
@@ -136,9 +144,9 @@ function TokenTracker() {
         <div className="w-20 h-20 rounded-3xl mb-5 flex items-center justify-center" style={{background:'#e8f4fd'}}>
           <span className="text-[36px]">🎟️</span>
         </div>
-        <p className="font-sora font-bold text-gray-700 text-[18px] mb-2">No Active Token</p>
-        <p className="text-gray-400 text-[14px] mb-6">Join a clinic queue to get your token</p>
-        <button onClick={()=>router.replace('/explore')} className="btn-primary max-w-[220px]">Find a Clinic</button>
+        <p className="font-sora font-bold text-gray-700 text-[18px] mb-2">{t.noActive}</p>
+        <p className="text-gray-400 text-[14px] mb-6">{t.joinClinic}</p>
+        <button onClick={()=>router.replace('/explore')} className="btn-primary max-w-[220px]">{t.findClinic}</button>
       </div>
     );
   }
@@ -154,8 +162,11 @@ function TokenTracker() {
           <button onClick={()=>router.back()} className="w-10 h-10 bg-white/15 rounded-xl flex items-center justify-center">
             <ArrowLeft size={18} color="white" />
           </button>
-          <span className="font-sora font-bold text-white text-[17px]">My Token</span>
+          <span className="font-sora font-bold text-white text-[17px]">{t.title}</span>
           <div className="flex items-center gap-2">
+            <button onClick={() => setLang(l => l==='en'?'hi':'en')} className="w-10 h-10 bg-white/15 rounded-xl flex items-center justify-center font-bold text-white text-[12px]">
+              {lang === 'en' ? 'HI' : 'EN'}
+            </button>
             <button onClick={handleShare} className="w-10 h-10 bg-white/15 rounded-xl flex items-center justify-center">
               <Share2 size={16} color="white" />
             </button>
@@ -170,13 +181,13 @@ function TokenTracker() {
         <TokenCard token={token} />
 
         <p className="text-center text-[11px] text-gray-400 mt-3 mb-4">
-          Updated {lastSec < 5 ? 'just now' : `${lastSec}s ago`} · Live Real-time updates ⚡
+          Updated {lastSec < 5 ? 'just now' : `${lastSec}s ago`} · {t.liveUpdate} ⚡
         </p>
 
         {/* Queue position visualization */}
         {token.status==='waiting' && (token.tokens_ahead||0) > 0 && (
           <div className="bg-white rounded-3xl p-5 mb-4" style={{boxShadow:'0 4px 20px rgba(0,0,0,0.07)'}}>
-            <h3 className="font-sora font-bold text-gray-900 text-[15px] mb-3">Queue Position</h3>
+            <h3 className="font-sora font-bold text-gray-900 text-[15px] mb-3">{t.queuePosition}</h3>
             <div className="flex gap-2 overflow-x-auto pb-1">
               {[...Array(Math.min(9,(token.tokens_ahead||0)+1))].map((_,i)=>{
                 const isMe = i===(token.tokens_ahead||0);
@@ -188,7 +199,7 @@ function TokenTracker() {
                       transform: isMe ? 'scale(1.12)' : 'scale(1)',
                       boxShadow: isMe ? '0 4px 16px rgba(9,132,227,0.4)' : 'none',
                     }}>
-                    {isMe ? 'YOU' : i+1}
+                    {isMe ? t.you : i+1}
                   </div>
                 );
               })}
@@ -202,8 +213,8 @@ function TokenTracker() {
             <div className="w-16 h-16 rounded-full mx-auto mb-3 flex items-center justify-center" style={{background:'#e8f8f5'}}>
               <CheckCircle size={32} style={{color:'#00b894'}} />
             </div>
-            <h3 className="font-sora font-bold text-gray-900 text-[18px] mb-1">Visit Complete!</h3>
-            <p className="text-gray-400 text-[13px]">Thank you for using QueueCare</p>
+            <h3 className="font-sora font-bold text-gray-900 text-[18px] mb-1">{t.visitComplete}</h3>
+            <p className="text-gray-400 text-[13px]">{t.thankYou}</p>
           </div>
         )}
 
@@ -212,7 +223,7 @@ function TokenTracker() {
           <button onClick={subscribeToPush}
             className="w-full py-3.5 mb-3 bg-[#0c2461] text-white rounded-2xl flex items-center justify-center gap-2 text-[14px] font-bold"
             style={{boxShadow:'0 4px 16px rgba(12,36,97,0.3)'}}>
-            🔔 Allow Notifications
+            🔔 {t.allowNotifications}
           </button>
         )}
         <button onClick={()=>{ 
@@ -223,17 +234,17 @@ function TokenTracker() {
         }}
           className="w-full py-3.5 mb-3 bg-white rounded-2xl flex items-center justify-center gap-2 text-[14px] font-semibold text-gray-700"
           style={{boxShadow:'0 4px 16px rgba(0,0,0,0.07)'}}>
-          <Volume2 size={16} style={{color:'#0984e3'}}/> Announce Token Status
+          <Volume2 size={16} style={{color:'#0984e3'}}/> {t.announceStatus}
         </button>
 
         {(token.status==='waiting'||token.status==='called') && (
           <button onClick={handleLeave}
             className="w-full py-3.5 mb-5 rounded-2xl border-2 border-red-200 text-red-500 text-[14px] font-bold flex items-center justify-center gap-2 bg-white">
-            <X size={16}/> Leave Queue
+            <X size={16}/> {t.leaveQueue}
           </button>
         )}
         {token.status==='done' && (
-          <button onClick={()=>router.replace('/home')} className="btn-primary mb-6">Back to Home</button>
+          <button onClick={()=>router.replace('/home')} className="btn-primary mb-6">{t.backHome}</button>
         )}
       </div>
       <BottomNav />

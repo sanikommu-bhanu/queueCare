@@ -34,8 +34,17 @@ export async function initDb() {
     rating NUMERIC(2,1) DEFAULT 4.5,
     avg_wait_minutes INTEGER DEFAULT 15,
     is_open BOOLEAN DEFAULT TRUE,
+    doctor_name TEXT,
+    doctor_image TEXT,
+    doctor_experience TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW()
   )`;
+
+  try {
+    await sql`ALTER TABLE clinics ADD COLUMN IF NOT EXISTS doctor_name TEXT`;
+    await sql`ALTER TABLE clinics ADD COLUMN IF NOT EXISTS doctor_image TEXT`;
+    await sql`ALTER TABLE clinics ADD COLUMN IF NOT EXISTS doctor_experience TEXT`;
+  } catch (e) {}
 
   await sql`CREATE TABLE IF NOT EXISTS queues (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -88,13 +97,13 @@ export async function initDb() {
   // Seed clinics
   const [{ count }] = await sql`SELECT COUNT(*)::int AS count FROM clinics`;
   if (count === 0) {
-    await sql`INSERT INTO clinics (name,specialty,address,city,phone,image_url,rating,avg_wait_minutes) VALUES
-      ('Apollo Clinic','General Medicine','14 MG Road, Koramangala','Bangalore','+91 80 2345 6789','https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?w=500&q=80',4.8,12),
-      ('City Heart Center','Cardiology','22 Park Street, Sector 5','Delhi','+91 11 9876 5432','https://images.unsplash.com/photo-1516549655169-df83a0774514?w=500&q=80',4.6,20),
-      ('Neuro Care Clinic','Neurology','8 Lake View Road, Bandra','Mumbai','+91 22 5678 9012','https://images.unsplash.com/photo-1551076805-e1869033e561?w=500&q=80',4.7,18),
-      ('Smile Dental Studio','Dentistry','3 Commercial Street, Jayanagar','Bangalore','+91 80 3456 7890','https://images.unsplash.com/photo-1606811841689-23dfddce3e95?w=500&q=80',4.9,10),
-      ('Vision Eye Clinic','Ophthalmology','67 Anna Salai, T Nagar','Chennai','+91 44 7890 1234','https://images.unsplash.com/photo-1588776814546-1ffbb180d46b?w=500&q=80',4.5,15),
-      ('Medilife Hospital','Multi-Specialty','45 Hiranandani Gardens, Powai','Mumbai','+91 22 4567 8901','https://images.unsplash.com/photo-1538108149393-fbbd81895907?w=500&q=80',4.7,25)
+    await sql`INSERT INTO clinics (name,specialty,address,city,phone,image_url,rating,avg_wait_minutes,doctor_name,doctor_image,doctor_experience) VALUES
+      ('Apollo Clinic','General Medicine','14 MG Road, Koramangala','Bangalore','+91 80 2345 6789','https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?w=500&q=80',4.8,12, 'Dr. Arjun Mehta', 'https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=300&q=85', '12 yrs'),
+      ('City Heart Center','Cardiology','22 Park Street, Sector 5','Delhi','+91 11 9876 5432','https://images.unsplash.com/photo-1516549655169-df83a0774514?w=500&q=80',4.6,20, 'Dr. Priya Sharma', 'https://images.unsplash.com/photo-1594824476967-48c8b964273f?w=300&q=85', '18 yrs'),
+      ('Neuro Care Clinic','Neurology','8 Lake View Road, Bandra','Mumbai','+91 22 5678 9012','https://images.unsplash.com/photo-1551076805-e1869033e561?w=500&q=80',4.7,18, 'Dr. Vikram Nair', 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?w=300&q=85', '15 yrs'),
+      ('Smile Dental Studio','Dentistry','3 Commercial Street, Jayanagar','Bangalore','+91 80 3456 7890','https://images.unsplash.com/photo-1606811841689-23dfddce3e95?w=500&q=80',4.9,10, 'Dr. Ananya Patel', 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=300&q=85', '9 yrs'),
+      ('Vision Eye Clinic','Ophthalmology','67 Anna Salai, T Nagar','Chennai','+91 44 7890 1234','https://images.unsplash.com/photo-1588776814546-1ffbb180d46b?w=500&q=80',4.5,15, 'Dr. Rohan Das', 'https://images.unsplash.com/photo-1643297654416-05795d62e39c?w=300&q=85', '11 yrs'),
+      ('Medilife Hospital','Multi-Specialty','45 Hiranandani Gardens, Powai','Mumbai','+91 22 4567 8901','https://images.unsplash.com/photo-1538108149393-fbbd81895907?w=500&q=80',4.7,25, 'Dr. Meera Krishnan', 'https://images.unsplash.com/photo-1582750433449-648ed127bb54?w=300&q=85', '22 yrs')
     `;
   }
 

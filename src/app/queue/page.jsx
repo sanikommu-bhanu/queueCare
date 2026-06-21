@@ -4,8 +4,8 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { ArrowLeft, User, Phone, FileText, Clock, Users, Loader2, Star } from 'lucide-react';
 import { useAppStore } from '@/store/useAppStore';
-import { DEMO_CLINICS } from '@/lib/images';
 import toast from 'react-hot-toast';
+import { useEffect } from 'react';
 
 const REASONS = ['General Checkup','Follow-up Visit','Prescription Renewal','Lab Report Review','New Complaint','Emergency'];
 
@@ -13,14 +13,24 @@ function QueueForm() {
   const router = useRouter();
   const sp = useSearchParams();
   const clinicId   = sp.get('clinic_id');
-  const clinicName = sp.get('name') || 'Clinic';
-  const clinicSpec = sp.get('specialty') || '';
+  const fallbackName = sp.get('name') || 'Clinic';
+  const fallbackSpec = sp.get('specialty') || '';
   const { user, setCurrentToken, addTokenToHistory, pushNotification } = useAppStore();
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({ patient_name: user?.name||'', patient_phone: user?.phone||'', reason:'' });
+  const [fetchedClinic, setFetchedClinic] = useState(null);
+
+  useEffect(() => {
+    if (!clinicId) return;
+    fetch(`/api/clinics/${clinicId}`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.clinic) setFetchedClinic(data.clinic);
+      });
+  }, [clinicId]);
 
   // Find clinic data for rich display
-  const clinic = DEMO_CLINICS.find(c=>c.id===clinicId) || { image_url:'https://images.unsplash.com/photo-1586773860418-d37222d8fce3?w=600&q=85', doctor:null, rating:4.8, avg_wait_minutes:15, queue_size:6 };
+  const clinic = fetchedClinic || { name: fallbackName, specialty: fallbackSpec, image_url:'https://images.unsplash.com/photo-1586773860418-d37222d8fce3?w=600&q=85', doctor:null, rating:4.8, avg_wait_minutes:15, queue_size:0 };
 
   const join = async () => {
     if (!form.patient_name.trim()) { toast.error('Please enter your name'); return; }
@@ -33,27 +43,21 @@ function QueueForm() {
       let token;
       if (res.ok) {
         const d = await res.json();
-        token = { ...d.token, clinic_name:clinicName, clinic_specialty:clinicSpec };
+        token = { ...d.token, clinic_name: clinic.name, clinic_specialty: clinic.specialty };
+        finalize(token);
       } else {
         throw new Error('api-fail');
       }
-      finalize(token);
     } catch {
-      const num = Math.floor(Math.random()*15)+5;
-      const token = {
-        id:'demo-'+Date.now(), token_number:num, clinic_id:clinicId, clinic_name:clinicName, clinic_specialty:clinicSpec,
-        patient_name:form.patient_name, reason:form.reason, status:'waiting',
-        tokens_ahead: Math.floor(Math.random()*8)+2, estimated_wait_minutes: Math.floor(Math.random()*25)+8,
-        current_token: Math.floor(Math.random()*5), created_at: new Date().toISOString(),
-      };
-      finalize(token);
+      toast.error('Failed to join queue. Please check your connection.');
+      setLoading(false);
     }
   };
 
   const finalize = (token) => {
     setCurrentToken(token);
     addTokenToHistory(token);
-    pushNotification({ title:'Token Generated! 🎟️', body:`Token #${String(token.token_number).padStart(3,'0')} at ${clinicName}`, type:'token' });
+    pushNotification({ title:'Token Generated! 🎟️', body:`Token #${String(token.token_number).padStart(3,'0')} at ${clinic.name}`, type:'token' });
     toast.success(`Token #${String(token.token_number).padStart(3,'0')} generated!`);
     router.replace(`/token?id=${token.id}`);
     setLoading(false);
@@ -63,7 +67,7 @@ function QueueForm() {
     <div className="min-h-screen bg-gray-50">
       {/* Clinic hero image */}
       <div className="relative overflow-hidden" style={{ height: 220 }}>
-        <Image src={clinic.image_url} alt={clinicName} fill className="object-cover" sizes="430px" priority />
+        <Image src={clinic.image_url} alt={clinic.name} fill className="object-cover" sizes="430px" priority />
         <div className="absolute inset-0" style={{ background:'linear-gradient(to bottom, rgba(0,0,0,0.25) 0%, rgba(12,36,97,0.88) 100%)' }} />
 
         <div className="absolute top-0 left-0 right-0 pt-14 px-5">
@@ -75,8 +79,8 @@ function QueueForm() {
         <div className="absolute bottom-0 left-0 right-0 px-5 pb-5">
           <div className="flex items-end justify-between">
             <div>
-              <span className="inline-block bg-white/20 backdrop-blur text-white text-[11px] font-bold px-3 py-1 rounded-full mb-2">{clinicSpec}</span>
-              <h1 className="font-sora text-[22px] font-extrabold text-white mb-1">{clinicName}</h1>
+              <span className="inline-block bg-white/20 backdrop-blur text-white text-[11px] font-bold px-3 py-1 rounded-full mb-2">{clinic.specialty}</span>
+              <h1 className="font-sora text-[22px] font-extrabold text-white mb-1">{clinic.name}</h1>
               <div className="flex items-center gap-2">
                 <Star size={12} fill="#f59e0b" color="#f59e0b" />
                 <span className="text-white/80 text-[12px] font-semibold">{clinic.rating} rating</span>

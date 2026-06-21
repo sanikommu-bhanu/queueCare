@@ -24,6 +24,10 @@ export async function POST(req) {
     const tokensAhead = Math.max(0, tokenNumber - queue.current_token - 1);
     const waitMins = tokensAhead * (clinic?.avg_wait_minutes || 15);
 
+    if (global.io) {
+      global.io.emit('queueUpdated', { clinic_id });
+    }
+
     return NextResponse.json({
       token: { ...token, clinic_name: clinic?.name, clinic_specialty: clinic?.specialty, tokens_ahead: tokensAhead, estimated_wait_minutes: waitMins }
     });

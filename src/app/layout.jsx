@@ -7,6 +7,18 @@ export const metadata = {
   description: 'Real-time healthcare queue management. No more waiting in crowded clinics.',
   icons: { icon: '/icon.svg' },
   manifest: '/manifest.json',
+  openGraph: {
+    title: 'QueueCare',
+    description: 'Real-time clinic queue management. See your live token status.',
+    url: 'https://queuecare.app',
+    siteName: 'QueueCare',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'QueueCare',
+    description: 'Real-time clinic queue management.',
+  },
 };
 export const viewport = { width: 'device-width', initialScale: 1, maximumScale: 1, themeColor: '#0c2461' };
 
