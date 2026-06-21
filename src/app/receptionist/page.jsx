@@ -13,7 +13,7 @@ export default function ReceptionistPage() {
   const router = useRouter();
   const [tokens, setTokens] = useState(DEMO_QUEUE_PATIENTS);
   const [currentToken, setCurrentToken] = useState(3);
-  const [clinicId] = useState('c1');
+  const [clinicId, setClinicId] = useState(null);
   const [calling, setCalling] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
   const [addForm, setAddForm] = useState({ name:'', phone:'', reason:'' });
@@ -25,19 +25,34 @@ export default function ReceptionistPage() {
     served:  tokens.filter(t=>t.status==='done').length,
   };
 
+  useEffect(() => {
+    fetch('/api/clinics/list')
+      .then(r => r.json())
+      .then(d => {
+        if (d.clinics?.[0]) setClinicId(d.clinics[0].id);
+      });
+  }, []);
+
   const loadQueue = useCallback(async () => {
+    if (!clinicId) return;
     setLoading(true);
     try {
       const res = await fetch(`/api/queue/next?clinic_id=${clinicId}`);
       if (res.ok) {
         const d = await res.json();
-        if (d.tokens?.length) { setTokens(d.tokens); setCurrentToken(d.current_token||0); }
+        if (d.tokens?.length) { 
+          setTokens(d.tokens); 
+          setCurrentToken(d.current_token||0); 
+        } else {
+          setTokens([]);
+          setCurrentToken(0);
+        }
       }
     } catch {}
     setLoading(false);
   }, [clinicId]);
 
-  useEffect(() => { loadQueue(); }, []);
+  useEffect(() => { loadQueue(); }, [clinicId, loadQueue]);
 
   const callNext = async () => {
     setCalling(true);
