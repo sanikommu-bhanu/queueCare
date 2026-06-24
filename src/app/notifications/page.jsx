@@ -2,9 +2,10 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { ArrowLeft, Bell, Ticket, CheckCircle, Clock, Users } from 'lucide-react';
+import { ArrowLeft, Bell, Ticket, CheckCircle, Clock, Users, Trash2 } from 'lucide-react';
 import BottomNav from '@/components/BottomNav';
 import { useAppStore } from '@/store/useAppStore';
+import toast from 'react-hot-toast';
 
 const ICON_MAP = {
   token:    [Ticket,     '#e8f4fd', '#0984e3'],
@@ -30,7 +31,7 @@ function timeAgo(iso) {
 
 export default function NotificationsPage() {
   const router = useRouter();
-  const { notifications, markAllRead } = useAppStore();
+  const { notifications, markAllRead, clearNotifications } = useAppStore();
   useEffect(()=>{ markAllRead(); },[markAllRead]);
   const display = notifications.length > 0 ? notifications : DEMO;
 
@@ -45,10 +46,17 @@ export default function NotificationsPage() {
           <button onClick={()=>router.back()} className="w-10 h-10 bg-white/15 rounded-xl flex items-center justify-center">
             <ArrowLeft size={18} color="white" />
           </button>
-          <div>
+          <div className="flex-1">
             <h1 className="font-sora text-[20px] font-extrabold text-white">Notifications</h1>
             <p className="text-white/60 text-[12px]">{display.length} alert{display.length!==1?'s':''}</p>
           </div>
+          {notifications.length > 0 && (
+            <button onClick={() => { clearNotifications(); toast('Notifications cleared 🗑️'); }}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-white/80 text-[12px] font-bold"
+              style={{ background:'rgba(255,255,255,0.15)' }}>
+              <Trash2 size={14} /> Clear All
+            </button>
+          )}
         </div>
       </div>
 

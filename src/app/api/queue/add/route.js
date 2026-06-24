@@ -24,8 +24,16 @@ export async function POST(req) {
     const tokensAhead = Math.max(0, tokenNumber - queue.current_token - 1);
     const waitMins = tokensAhead * (clinic?.avg_wait_minutes || 15);
 
-    if (global.io) {
-      global.io.emit('queueUpdated', { clinic_id });
+    try {
+      const url = new URL(req.url);
+      const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || url.origin;
+      await fetch(`${siteUrl}/api/emit`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ event: 'queueUpdated', data: { clinic_id } }),
+      });
+    } catch (e) {
+      console.error('Failed to emit socket event:', e);
     }
 
     return NextResponse.json({

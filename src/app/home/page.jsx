@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Bell, Clock, Users, Ticket, MapPin, ChevronRight, Zap, Activity, CheckCircle, TrendingUp, Search } from 'lucide-react';
+import { Bell, Clock, Users, Ticket, MapPin, ChevronRight, Zap, Activity, CheckCircle, TrendingUp, Search, LayoutDashboard } from 'lucide-react';
 import BottomNav from '@/components/BottomNav';
 import { ClinicCardHorizontal } from '@/components/ClinicCard';
 import TokenCard from '@/components/TokenCard';
@@ -24,6 +24,7 @@ const SPECIALTIES = [
 export default function HomePage() {
   const router = useRouter();
   const { user, currentToken, tokenHistory, notifications } = useAppStore();
+  const isReceptionist = user?.role === 'receptionist';
   const [clinics, setClinics] = useState([]);
   const [stats, setStats] = useState({ total_clinics: 8, served_today: 248, waiting_now: 47 });
   const [specialty, setSpecialty] = useState('all');
@@ -35,9 +36,13 @@ export default function HomePage() {
 
   useEffect(() => {
     if (!user?.id) { router.replace('/welcome'); return; }
+    if (user?.role === 'receptionist') {
+      router.replace('/receptionist');
+      return;
+    }
     loadClinics();
     loadStats();
-  }, [user]);
+  }, [user, router]);
 
   const loadClinics = async () => {
     setLoading(true);

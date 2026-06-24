@@ -14,6 +14,7 @@ export default function ReceptionistPage() {
   const [tokens, setTokens] = useState([]);
   const [currentToken, setCurrentToken] = useState(3);
   const [clinicId, setClinicId] = useState(null);
+  const [allClinics, setAllClinics] = useState([]);
   const [calling, setCalling] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
   const [addForm, setAddForm] = useState({ name:'', phone:'', reason:'' });
@@ -32,45 +33,19 @@ export default function ReceptionistPage() {
     fetch('/api/clinics/list')
       .then(r => r.json())
       .then(d => {
-        if (d.clinics?.[0]) {
+        if (d.clinics?.length > 0) {
+          setAllClinics(d.clinics);
           setClinicId(d.clinics[0].id);
           setWaitMins(d.clinics[0].avg_wait_minutes || 15);
         }
       });
   }, []);
 
-  useEffect(() => { 
-    initSocket();
-    const handleUpdate = () => loadQueue();
-    const checkSocket = setInterval(() => {
-      const sock = getSocket();
-      if (sock) {
-        sock.on('queueUpdated', handleUpdate);
-        clearInterval(checkSocket);
-      }
-    }, 200);
-    return () => {
-      clearInterval(checkSocket);
-      const sock = getSocket();
-    };
-  }, [loadQueue]);
-
-  const loadStats = useCallback(async () => {
-    if (!clinicId) return;
-    try {
-      const res = await fetch(`/api/analytics/summary?clinic_id=${clinicId}`);
-      if (res.ok) {
-        const d = await res.json();
-        setRealStats({ served_today: d.stats.served_today || 0, avg_wait: Math.round(d.stats.avg_service_minutes || 0) });
-      }
-    } catch {}
-  }, [clinicId]);
-
   const loadQueue = useCallback(async () => {
     if (!clinicId) return;
     setLoading(true);
     try {
-      const res = await fetch(`/api/queue/next?clinic_id=${clinicId}`);
+      const res = await fetch(`/api/queue/next?clinic_id=${clinicId}&_t=${Date.now()}`);
       if (res.ok) {
         const d = await res.json();
         if (d.tokens?.length) { 
@@ -83,6 +58,41 @@ export default function ReceptionistPage() {
       }
     } catch {}
     setLoading(false);
+  }, [clinicId]);
+
+  useEffect(() => { 
+    initSocket();
+    const handleUpdate = () => loadQueue();
+    const checkSocket = setInterval(() => {
+      const sock = getSocket();
+      if (sock) {
+        sock.on('queueUpdated', handleUpdate);
+        clearInterval(checkSocket);
+      }
+    }, 200);
+
+    // Fallback polling in case WebSockets drop in dev
+    const pollTimer = setInterval(() => {
+      loadQueue();
+    }, 5000);
+
+    return () => {
+      clearInterval(checkSocket);
+      clearInterval(pollTimer);
+      const sock = getSocket();
+      if (sock) sock.off('queueUpdated', handleUpdate);
+    };
+  }, [loadQueue]);
+
+  const loadStats = useCallback(async () => {
+    if (!clinicId) return;
+    try {
+      const res = await fetch(`/api/analytics/summary?clinic_id=${clinicId}`);
+      if (res.ok) {
+        const d = await res.json();
+        setRealStats({ served_today: d.stats.served_today || 0, avg_wait: Math.round(d.stats.avg_service_minutes || 0) });
+      }
+    } catch {}
   }, [clinicId]);
 
   useEffect(() => { loadQueue(); loadStats(); }, [clinicId, loadQueue, loadStats]);
@@ -105,6 +115,27 @@ export default function ReceptionistPage() {
       } else throw new Error();
     } catch {
       toast.error('Failed to call next token. Check connection.');
+    }
+    setCalling(false);
+  };
+
+  const skipNext = async () => {
+    setCalling(true);
+    try {
+      const res = await fetch('/api/queue/next', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ clinic_id: clinicId, action: 'skip' }),
+      });
+      if (res.ok) {
+        const d = await res.json();
+        if (d.queue_empty) { toast('Queue is empty! 🎉'); }
+        else {
+          toast.success(`Skipped previous. Calling Token #${pad(d.current_number)}`);
+          loadQueue();
+        }
+      } else throw new Error();
+    } catch {
+      toast.error('Failed to skip. Check connection.');
     }
     setCalling(false);
   };
@@ -163,7 +194,7 @@ export default function ReceptionistPage() {
       <div className="relative overflow-hidden" style={{ paddingTop:52, paddingBottom:24, paddingLeft:20, paddingRight:20 }}>
         <Image src="https://images.unsplash.com/photo-1631217868264-e5b90bb7e133?w=900&q=85"
           alt="clinic" fill className="object-cover" sizes="430px" />
-        <div className="absolute inset-0" style={{ background:'linear-gradient(135deg,rgba(12,36,97,0.93),rgba(9,132,227,0.88))' }} />
+        <div className="absolute inset-0" style={{ background:'linear-gradient(135deg,rgba(15,23,42,0.95),rgba(30,41,59,0.95))' }} />
         <div className="absolute top-[-40px] right-[-40px] w-48 h-48 rounded-full bg-white/5" />
 
         <div className="relative z-10">
@@ -171,7 +202,16 @@ export default function ReceptionistPage() {
             <button onClick={() => router.back()} className="w-10 h-10 bg-white/15 rounded-xl flex items-center justify-center"><ArrowLeft size={18} color="white" /></button>
             <div className="text-center">
               <p className="text-white/60 text-[12px]">Receptionist Dashboard</p>
-              <p className="font-sora font-bold text-white text-[15px]">Apollo Clinic</p>
+              <select 
+                value={clinicId || ''} 
+                onChange={(e) => setClinicId(e.target.value)}
+                className="font-sora font-bold text-white text-[15px] bg-transparent outline-none appearance-none cursor-pointer text-center"
+                style={{ textAlignLast: 'center' }}
+              >
+                {allClinics.map(c => (
+                  <option key={c.id} value={c.id} className="text-gray-900">{c.name}</option>
+                ))}
+              </select>
             </div>
             <div className="flex gap-2">
               <button onClick={() => setShowSettings(true)} className="w-10 h-10 bg-white/15 rounded-xl flex items-center justify-center">
@@ -200,13 +240,22 @@ export default function ReceptionistPage() {
                   </div>
                 )}
               </div>
-              <button onClick={callNext} disabled={calling || stats.waiting === 0}
-                className="font-sora font-bold text-[14px] px-5 py-4 rounded-2xl flex items-center gap-2 active:scale-95 transition-transform disabled:opacity-50"
-                style={{ background:'#f59e0b', boxShadow:'0 8px 24px rgba(245,158,11,0.45)', color:'white' }}>
-                {calling
-                  ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  : <><ChevronRight size={18} /> Call Next</>}
-              </button>
+              <div className="flex flex-col gap-2">
+                <button onClick={callNext} disabled={calling || stats.waiting === 0}
+                  className="font-sora font-bold text-[14px] px-5 py-4 rounded-2xl flex items-center justify-center gap-2 active:scale-95 transition-transform disabled:opacity-50"
+                  style={{ background:'#f59e0b', boxShadow:'0 8px 24px rgba(245,158,11,0.45)', color:'white' }}>
+                  {calling
+                    ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    : <><ChevronRight size={18} /> Call Next</>}
+                </button>
+                {calledTk && (
+                  <button onClick={skipNext} disabled={calling}
+                    className="font-sora font-semibold text-[11px] px-3 py-1.5 rounded-xl text-center active:scale-95 transition-transform disabled:opacity-50"
+                    style={{ background:'rgba(255,255,255,0.15)', color:'white' }}>
+                    Mark No-Show & Skip
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -248,13 +297,15 @@ export default function ReceptionistPage() {
           <div className="p-3 bg-gray-50 rounded-xl mb-3 inline-block">
             <QRCodeSVG 
               id="clinic-qr-code"
-              value={`${typeof window !== 'undefined' ? window.location.origin : ''}/queue?clinic_id=${clinicId}&name=Apollo Clinic`} 
+              value={`${typeof window !== 'undefined' ? window.location.origin : ''}/queue?clinic_id=${clinicId}&name=${encodeURIComponent(allClinics.find(c => c.id === clinicId)?.name || 'Clinic')}`} 
               size={200} 
               level="M" 
               includeMargin={true}
             />
           </div>
-          <p className="font-sora font-extrabold text-[#0984e3] text-[16px] tracking-wide mb-4">Apollo Clinic</p>
+          <p className="font-sora font-extrabold text-[#0984e3] text-[16px] tracking-wide mb-4">
+            {allClinics.find(c => c.id === clinicId)?.name || 'Clinic'}
+          </p>
           
           <button 
             onClick={() => {

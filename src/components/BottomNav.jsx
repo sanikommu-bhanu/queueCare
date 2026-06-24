@@ -1,27 +1,57 @@
 'use client';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Search, Ticket, Bell, User } from 'lucide-react';
+import { Home, Search, Ticket, Bell, User, LayoutDashboard, ClipboardList } from 'lucide-react';
 import { useAppStore } from '@/store/useAppStore';
 import { pad } from '@/lib/utils';
 
-const ITEMS = [
-  { href: '/home', label: 'Home', Icon: Home },
-  { href: '/explore', label: 'Find Clinic', Icon: Search },
-  { href: null, label: 'Token', Icon: Ticket, fab: true },
-  { href: '/notifications', label: 'Alerts', Icon: Bell },
-  { href: '/settings', label: 'Profile', Icon: User },
-];
-
 export default function BottomNav() {
   const path = usePathname();
-  const { currentToken, notifications } = useAppStore();
+  const { currentToken, notifications, user } = useAppStore();
   const unread = notifications.filter(n => !n.read).length;
+  const isReceptionist = user?.role === 'receptionist';
+
+  if (isReceptionist) {
+    const RECEPTIONIST_ITEMS = [
+      { href: '/receptionist', label: 'Dashboard', Icon: LayoutDashboard },
+      { href: '/notifications', label: 'Alerts', Icon: Bell },
+      { href: '/settings', label: 'Settings', Icon: User },
+    ];
+    return (
+      <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[430px] h-[76px] bg-slate-900 border-t border-slate-800 flex items-start justify-around pt-3 z-50">
+        {RECEPTIONIST_ITEMS.map(({ href, label, Icon }) => {
+          const active = path === href;
+          const showBadge = href === '/notifications' && unread > 0;
+          return (
+            <Link key={href} href={href} className="flex flex-col items-center gap-1">
+              <div className="relative">
+                <Icon size={22} color={active ? '#fff' : '#64748b'} />
+                {showBadge && (
+                  <span className="absolute -top-1.5 -right-2 w-4 h-4 bg-red-500 rounded-full flex items-center justify-center text-[9px] font-bold text-white">
+                    {unread > 9 ? '9+' : unread}
+                  </span>
+                )}
+              </div>
+              <span className="text-[10px] font-semibold mt-0.5" style={{ color: active ? '#fff' : '#64748b' }}>{label}</span>
+            </Link>
+          );
+        })}
+      </nav>
+    );
+  }
+
+  const PATIENT_ITEMS = [
+    { href: '/home', label: 'Home', Icon: Home },
+    { href: '/explore', label: 'Find Clinic', Icon: Search },
+    { href: null, label: 'Token', Icon: Ticket, fab: true },
+    { href: '/notifications', label: 'Alerts', Icon: Bell },
+    { href: '/settings', label: 'Profile', Icon: User },
+  ];
 
   return (
     <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[430px] h-[76px] bg-white border-t border-gray-100 flex items-start pt-2.5 z-50"
       style={{ boxShadow: '0 -6px 24px rgba(0,0,0,0.06)' }}>
-      {ITEMS.map(({ href, label, Icon, fab }) => {
+      {PATIENT_ITEMS.map(({ href, label, Icon, fab }) => {
         if (fab) {
           const tokenHref = currentToken ? `/token?id=${currentToken.id}` : '/explore';
           const active = !!currentToken;
@@ -38,8 +68,10 @@ export default function BottomNav() {
             </Link>
           );
         }
+
         const active = path === href || path.startsWith(href + '/');
         const showBadge = href === '/notifications' && unread > 0;
+
         return (
           <Link key={href} href={href} className="flex-1 flex flex-col items-center gap-1">
             <div className={`w-[42px] h-[42px] rounded-[13px] flex items-center justify-center relative transition-colors ${active ? 'bg-blue-50' : ''}`}>

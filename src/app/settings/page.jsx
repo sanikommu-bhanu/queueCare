@@ -1,36 +1,93 @@
 'use client';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { User, Phone, Mail, Bell, Shield, LogOut, ChevronRight, Moon, HelpCircle, Star, Briefcase, Activity } from 'lucide-react';
+import { User, Phone, Mail, Bell, Shield, LogOut, ChevronRight, Moon, HelpCircle, Star, Briefcase, Activity, X, Volume2, Smartphone, ChevronDown, Check } from 'lucide-react';
 import BottomNav from '@/components/BottomNav';
 import { useAppStore } from '@/store/useAppStore';
 import { initials } from '@/lib/utils';
 import toast from 'react-hot-toast';
 
+// ── Bottom Sheet wrapper ──
+function Sheet({ open, onClose, children }) {
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 bg-black/60 z-50 flex items-end max-w-[430px] mx-auto"
+      onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="w-full bg-white rounded-t-[32px] p-6 sheet-up max-h-[85vh] overflow-y-auto">
+        <div className="w-12 h-1 bg-gray-200 rounded-full mx-auto mb-5" />
+        {children}
+      </div>
+    </div>
+  );
+}
+
+// ── FAQ Data ──
+const FAQ_ITEMS = [
+  { q: 'How do I join a clinic queue?', a: 'Go to "Find Clinic" from the home screen, select a clinic, fill in your details, and tap "Generate My Token". You\'ll get a digital token number instantly.' },
+  { q: 'How do I know when my token is called?', a: 'You\'ll receive a push notification, a voice announcement, and the app will show "Called" status on your token card in real-time.' },
+  { q: 'Can I leave the queue and rejoin later?', a: 'Yes! Tap "Leave Queue" on your token screen. However, you\'ll get a new token number when you rejoin and your previous position is lost.' },
+  { q: 'How does the receptionist dashboard work?', a: 'Receptionists can sign up with the "Receptionist" role. They get a dedicated dashboard to add patients, call next tokens, view analytics, and manage the queue.' },
+  { q: 'Is my data secure?', a: 'Yes. We use JWT-based authentication, bcrypt password hashing, and all data is stored securely on PostgreSQL with SSL encryption. We never share your personal information.' },
+  { q: 'What happens if I close the app?', a: 'Your token is saved locally on your device. When you reopen the app, your active token and queue position are automatically restored.' },
+];
+
 export default function SettingsPage() {
   const router = useRouter();
-  const { user, logout, tokenHistory } = useAppStore();
+  const { user, logout, tokenHistory, darkMode, toggleDarkMode, notificationPrefs, updateNotificationPrefs, updateUser, userRating, setUserRating } = useAppStore();
+
+  // Modal states
+  const [showEditProfile, setShowEditProfile] = useState(false);
+  const [showNotifPrefs, setShowNotifPrefs] = useState(false);
+  const [showFaq, setShowFaq] = useState(false);
+  const [showPrivacy, setShowPrivacy] = useState(false);
+  const [showRating, setShowRating] = useState(false);
+
+  // Edit profile form
+  const [profileForm, setProfileForm] = useState({
+    name: user?.name || '',
+    email: user?.email || '',
+    phone: user?.phone || '',
+  });
+
+  // FAQ accordion state
+  const [openFaq, setOpenFaq] = useState(null);
 
   const handleLogout = () => { logout(); toast('Signed out 👋'); router.replace('/welcome'); };
 
+  const saveProfile = () => {
+    if (!profileForm.name.trim()) { toast.error('Name is required'); return; }
+    updateUser(profileForm);
+    toast.success('Profile updated! ✅');
+    setShowEditProfile(false);
+  };
+
+  const handleRating = (stars) => {
+    setUserRating(stars);
+    toast.success(`Thanks for rating us ${stars} star${stars > 1 ? 's' : ''}! ⭐`);
+    setTimeout(() => setShowRating(false), 600);
+  };
+
+  const isReceptionist = user?.role === 'receptionist';
+
   const SECTIONS = [
     { title:'Account', items:[
-      { Icon:User,       label:'Edit Profile',          bg:'#e8f4fd', ic:'#0984e3', action:()=>toast('Coming soon') },
-      { Icon:Phone,      label:user?.phone||'Add Phone', bg:'#e0f2f1', ic:'#00897b', action:()=>toast('Coming soon') },
-      { Icon:Mail,       label:user?.email||'Add Email', bg:'#f3e8ff', ic:'#7c3aed', action:()=>{} },
+      { Icon:User,  label:'Edit Profile',          bg:'#e8f4fd', ic:'#0984e3', action:() => { setProfileForm({ name: user?.name||'', email: user?.email||'', phone: user?.phone||'' }); setShowEditProfile(true); } },
+      { Icon:Phone, label:user?.phone||'Add Phone', bg:'#e0f2f1', ic:'#00897b', action:() => { setProfileForm({ name: user?.name||'', email: user?.email||'', phone: user?.phone||'' }); setShowEditProfile(true); } },
+      { Icon:Mail,  label:user?.email||'Add Email', bg:'#f3e8ff', ic:'#7c3aed', action:() => { setProfileForm({ name: user?.name||'', email: user?.email||'', phone: user?.phone||'' }); setShowEditProfile(true); } },
     ]},
     { title:'For Clinics', items:[
-      { Icon:Briefcase,  label:'Receptionist Dashboard', bg:'#fef3c7', ic:'#f59e0b', action:()=>router.push('/receptionist'), badge:'PRO' },
-      { Icon:Activity,   label:'Clinic Analytics',        bg:'#e8f8f5', ic:'#00b894', action:()=>toast('Coming soon') },
+      { Icon:Briefcase, label: isReceptionist ? 'My Dashboard' : 'Receptionist Dashboard', bg:'#fef3c7', ic:'#f59e0b', action:()=>router.push('/receptionist'), badge: isReceptionist ? 'ACTIVE' : 'PRO' },
+      { Icon:Activity,  label:'Clinic Analytics', bg:'#e8f8f5', ic:'#00b894', action:()=>router.push('/receptionist') },
     ]},
     { title:'Preferences', items:[
-      { Icon:Bell,       label:'Notification Settings',  bg:'#fee2e2', ic:'#e17055', action:()=>toast('Coming soon') },
-      { Icon:Moon,       label:'Dark Mode',               bg:'#f1f5f9', ic:'#64748b', action:()=>toast('Coming soon') },
+      { Icon:Bell, label:'Notification Settings', bg:'#fee2e2', ic:'#e17055', action:()=>setShowNotifPrefs(true) },
+      { Icon:Moon, label:'Dark Mode',             bg:'#f1f5f9', ic:'#64748b', action:()=>{ toggleDarkMode(); toast(darkMode ? 'Light mode enabled ☀️' : 'Dark mode enabled 🌙'); }, toggle: true, toggled: darkMode },
     ]},
     { title:'Support', items:[
-      { Icon:HelpCircle, label:'Help & FAQ',              bg:'#e8f4fd', ic:'#0984e3', action:()=>toast('Coming soon') },
-      { Icon:Star,       label:'Rate QueueCare ⭐',       bg:'#fef3c7', ic:'#f59e0b', action:()=>toast('Thank you! ⭐') },
-      { Icon:Shield,     label:'Privacy Policy',          bg:'#f1f5f9', ic:'#64748b', action:()=>{} },
+      { Icon:HelpCircle, label:'Help & FAQ',       bg:'#e8f4fd', ic:'#0984e3', action:()=>setShowFaq(true) },
+      { Icon:Star,       label:'Rate QueueCare ⭐', bg:'#fef3c7', ic:'#f59e0b', action:()=>setShowRating(true) },
+      { Icon:Shield,     label:'Privacy Policy',   bg:'#f1f5f9', ic:'#64748b', action:()=>setShowPrivacy(true) },
     ]},
   ];
 
@@ -55,8 +112,8 @@ export default function SettingsPage() {
               <h2 className="font-sora text-[20px] font-bold text-white truncate mb-1">{user?.name||'Guest User'}</h2>
               <p className="text-white/60 text-[13px] mb-2 truncate">{user?.email||'Not signed in'}</p>
               <span className="inline-block px-3 py-1 rounded-full text-[11px] font-bold text-white"
-                style={{background: user?.role==='receptionist' ? '#f59e0b' : 'rgba(255,255,255,0.18)'}}>
-                {user?.role==='receptionist' ? '💼 Receptionist' : '🏥 Patient'}
+                style={{background: isReceptionist ? '#f59e0b' : 'rgba(255,255,255,0.18)'}}>
+                {isReceptionist ? '💼 Receptionist' : '🏥 Patient'}
               </span>
             </div>
           </div>
@@ -109,7 +166,13 @@ export default function SettingsPage() {
                   </div>
                   <span className="flex-1 text-[14px] font-semibold text-gray-800">{item.label}</span>
                   {item.badge && <span className="text-white text-[10px] font-bold px-2 py-0.5 rounded-full mr-1" style={{background:'#f59e0b'}}>{item.badge}</span>}
-                  <ChevronRight size={16} className="text-gray-300" />
+                  {item.toggle ? (
+                    <div className={`w-11 h-6 rounded-full relative transition-colors ${item.toggled ? 'bg-blue-500' : 'bg-gray-300'}`}>
+                      <div className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${item.toggled ? 'translate-x-[22px]' : 'translate-x-0.5'}`} />
+                    </div>
+                  ) : (
+                    <ChevronRight size={16} className="text-gray-300" />
+                  )}
                 </button>
               ))}
             </div>
@@ -123,6 +186,126 @@ export default function SettingsPage() {
         </button>
         <p className="text-center text-[11px] text-gray-300 pb-4">QueueCare v1.0.0 · Built with ❤️ for better healthcare</p>
       </div>
+
+      {/* ═══════════════════════════════════════════ */}
+      {/* ── MODAL: Edit Profile ── */}
+      <Sheet open={showEditProfile} onClose={() => setShowEditProfile(false)}>
+        <h3 className="font-sora text-[18px] font-bold text-gray-900 mb-5">✏️ Edit Profile</h3>
+        {[
+          { k:'name', l:'Full Name *', t:'text', p:'Your full name', I:User },
+          { k:'email', l:'Email Address', t:'email', p:'you@email.com', I:Mail },
+          { k:'phone', l:'Phone Number', t:'tel', p:'10-digit number', I:Phone },
+        ].map(f => (
+          <div key={f.k} className="mb-4">
+            <label className="block text-[13px] font-bold text-gray-500 mb-2">{f.l}</label>
+            <div className="relative">
+              <f.I size={16} className="absolute left-[14px] top-1/2 -translate-y-1/2 text-gray-400" />
+              <input type={f.t} value={profileForm[f.k]} onChange={e => setProfileForm(p => ({...p, [f.k]: e.target.value}))} placeholder={f.p}
+                className="w-full py-3 pl-11 pr-4 bg-gray-50 border border-gray-200 rounded-xl text-[14px] text-gray-900 outline-none focus:border-blue-400 placeholder:text-gray-400 transition-colors" />
+            </div>
+          </div>
+        ))}
+        <div className="flex gap-3 mt-6">
+          <button onClick={() => setShowEditProfile(false)} className="btn-secondary flex-1">Cancel</button>
+          <button onClick={saveProfile} className="btn-primary flex-1">Save Changes</button>
+        </div>
+      </Sheet>
+
+      {/* ── MODAL: Notification Settings ── */}
+      <Sheet open={showNotifPrefs} onClose={() => setShowNotifPrefs(false)}>
+        <h3 className="font-sora text-[18px] font-bold text-gray-900 mb-5">🔔 Notification Settings</h3>
+        {[
+          { key:'push', label:'Push Notifications', desc:'Get notified when your token is called', Icon: Bell, color:'#0984e3' },
+          { key:'voice', label:'Voice Announcements', desc:'Hear your token number spoken aloud', Icon: Volume2, color:'#00b894' },
+          { key:'sms', label:'SMS Alerts', desc:'Receive text messages for queue updates', Icon: Smartphone, color:'#f59e0b' },
+        ].map(item => (
+          <div key={item.key} className="flex items-center gap-3.5 py-4 border-b border-gray-100 last:border-0">
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: item.color + '18' }}>
+              <item.Icon size={18} style={{ color: item.color }} />
+            </div>
+            <div className="flex-1">
+              <p className="text-[14px] font-semibold text-gray-800">{item.label}</p>
+              <p className="text-[12px] text-gray-400">{item.desc}</p>
+            </div>
+            <button onClick={() => updateNotificationPrefs({ [item.key]: !notificationPrefs[item.key] })}
+              className={`w-11 h-6 rounded-full relative transition-colors ${notificationPrefs[item.key] ? 'bg-blue-500' : 'bg-gray-300'}`}>
+              <div className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${notificationPrefs[item.key] ? 'translate-x-[22px]' : 'translate-x-0.5'}`} />
+            </button>
+          </div>
+        ))}
+        <button onClick={() => { setShowNotifPrefs(false); toast.success('Preferences saved!'); }} className="btn-primary mt-6">Done</button>
+      </Sheet>
+
+      {/* ── MODAL: Help & FAQ ── */}
+      <Sheet open={showFaq} onClose={() => setShowFaq(false)}>
+        <h3 className="font-sora text-[18px] font-bold text-gray-900 mb-5">❓ Help & FAQ</h3>
+        {FAQ_ITEMS.map((item, i) => (
+          <div key={i} className="border-b border-gray-100 last:border-0">
+            <button onClick={() => setOpenFaq(openFaq === i ? null : i)}
+              className="w-full flex items-center justify-between py-4 text-left">
+              <span className="text-[14px] font-semibold text-gray-800 flex-1 pr-3">{item.q}</span>
+              <ChevronDown size={16} className={`text-gray-400 transition-transform flex-shrink-0 ${openFaq === i ? 'rotate-180' : ''}`} />
+            </button>
+            {openFaq === i && (
+              <p className="text-[13px] text-gray-500 leading-relaxed pb-4 -mt-1 fade-up">{item.a}</p>
+            )}
+          </div>
+        ))}
+        <button onClick={() => setShowFaq(false)} className="btn-primary mt-4">Got it!</button>
+      </Sheet>
+
+      {/* ── MODAL: Privacy Policy ── */}
+      <Sheet open={showPrivacy} onClose={() => setShowPrivacy(false)}>
+        <h3 className="font-sora text-[18px] font-bold text-gray-900 mb-5">🔒 Privacy Policy</h3>
+        <div className="space-y-4 text-[13px] text-gray-600 leading-relaxed">
+          <div>
+            <h4 className="font-bold text-gray-800 text-[14px] mb-1">Data Collection</h4>
+            <p>We collect only the information necessary to provide our queue management service: your name, email, phone number, and queue activity. We do not collect location data or browsing history.</p>
+          </div>
+          <div>
+            <h4 className="font-bold text-gray-800 text-[14px] mb-1">Data Storage & Security</h4>
+            <p>All data is stored securely on PostgreSQL databases with SSL encryption. Passwords are hashed using bcrypt. We use JWT tokens for secure authentication.</p>
+          </div>
+          <div>
+            <h4 className="font-bold text-gray-800 text-[14px] mb-1">Data Sharing</h4>
+            <p>We never sell or share your personal data with third parties. Clinic staff can only see your name and token number — never your contact details unless you explicitly provide them.</p>
+          </div>
+          <div>
+            <h4 className="font-bold text-gray-800 text-[14px] mb-1">Your Rights</h4>
+            <p>You can request deletion of your account and all associated data at any time by contacting us. You can also export your visit history from the settings page.</p>
+          </div>
+          <div>
+            <h4 className="font-bold text-gray-800 text-[14px] mb-1">Cookies & Local Storage</h4>
+            <p>We use browser local storage to persist your session and active token so you don't lose your queue position. We do not use tracking cookies or third-party analytics.</p>
+          </div>
+        </div>
+        <button onClick={() => setShowPrivacy(false)} className="btn-primary mt-6">Close</button>
+      </Sheet>
+
+      {/* ── MODAL: Rate QueueCare ── */}
+      <Sheet open={showRating} onClose={() => setShowRating(false)}>
+        <div className="text-center">
+          <div className="w-16 h-16 rounded-2xl mx-auto mb-4 flex items-center justify-center" style={{ background:'#fef3c7' }}>
+            <span className="text-[32px]">⭐</span>
+          </div>
+          <h3 className="font-sora text-[18px] font-bold text-gray-900 mb-2">Rate QueueCare</h3>
+          <p className="text-gray-400 text-[13px] mb-6">How would you rate your experience?</p>
+          <div className="flex justify-center gap-3 mb-6">
+            {[1,2,3,4,5].map(s => (
+              <button key={s} onClick={() => handleRating(s)}
+                className="transition-transform active:scale-90 hover:scale-110">
+                <Star size={36} fill={s <= (userRating || 0) ? '#f59e0b' : 'none'} color={s <= (userRating || 0) ? '#f59e0b' : '#d1d5db'} />
+              </button>
+            ))}
+          </div>
+          {userRating > 0 && (
+            <div className="flex items-center justify-center gap-2 text-green-600 font-bold text-[14px] fade-up">
+              <Check size={18} /> Thanks for your rating!
+            </div>
+          )}
+        </div>
+      </Sheet>
+
       <BottomNav />
     </div>
   );

@@ -10,9 +10,14 @@ export const useAppStore = create(
       currentToken: null,
       tokenHistory: [],
       notifications: [],
+      darkMode: false,
+      notificationPrefs: { push: true, voice: true, sms: false },
+      userRating: 0,
 
       setUser: (user, authToken) => set({ user, authToken }),
-      logout: () => set({ user:null, authToken:null, currentToken:null }),
+      updateUser: (updates) =>
+        set((s) => ({ user: s.user ? { ...s.user, ...updates } : null })),
+      logout: () => set({ user: null, authToken: null, currentToken: null }),
 
       setCurrentToken: (token) => set({ currentToken: token }),
       clearCurrentToken: () => set({ currentToken: null }),
@@ -35,7 +40,23 @@ export const useAppStore = create(
       markAllRead: () =>
         set((s) => ({ notifications: s.notifications.map(n => ({ ...n, read: true })) })),
 
+      clearNotifications: () => set({ notifications: [] }),
+
       unreadCount: () => get().notifications.filter(n => !n.read).length,
+
+      toggleDarkMode: () =>
+        set((s) => {
+          const next = !s.darkMode;
+          if (typeof document !== 'undefined') {
+            document.documentElement.classList.toggle('dark', next);
+          }
+          return { darkMode: next };
+        }),
+
+      updateNotificationPrefs: (updates) =>
+        set((s) => ({ notificationPrefs: { ...s.notificationPrefs, ...updates } })),
+
+      setUserRating: (rating) => set({ userRating: rating }),
     }),
     {
       name: 'queuecare-v1',
@@ -44,6 +65,9 @@ export const useAppStore = create(
         authToken: s.authToken,
         tokenHistory: s.tokenHistory,
         notifications: s.notifications,
+        darkMode: s.darkMode,
+        notificationPrefs: s.notificationPrefs,
+        userRating: s.userRating,
       }),
     }
   )

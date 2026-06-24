@@ -93,7 +93,7 @@ function TokenTracker() {
     if (!tokenId) return;
     setLoading(true);
     try {
-      const res = await fetch(`/api/tokens/status?token_id=${tokenId}`);
+      const res = await fetch(`/api/tokens/status?token_id=${tokenId}&_t=${Date.now()}`);
       if (res.ok) {
         const d = await res.json();
         setToken(d.token);
@@ -109,8 +109,6 @@ function TokenTracker() {
   useEffect(() => { 
     refresh(); 
     initSocket();
-    const s = getSocket();
-    
     const handleUpdate = () => refresh();
     
     const checkSocket = setInterval(() => {
@@ -121,8 +119,14 @@ function TokenTracker() {
       }
     }, 200);
 
+    // Fallback polling in case WebSockets drop in dev
+    const pollTimer = setInterval(() => {
+      refresh();
+    }, 5000);
+
     return () => {
       clearInterval(checkSocket);
+      clearInterval(pollTimer);
       const sock = getSocket();
       if (sock) sock.off('queueUpdated', handleUpdate);
     };
